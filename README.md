@@ -11,8 +11,9 @@ This tool provides an easy way to synchronize Overleaf projects from and to your
 
 ## What's New in this Version
 - **Fixed Project Discovery:** Rewrote the project list parsing logic to handle Overleaf's modern obfuscated HTML/JSON structure.
-- **Robust Bracket Counting:** Implemented a new extraction method that correctly identifies the projects array even when it's deeply nested or HTML-escaped.
-- **Improved Error Handling:** Clearer messages when authentication fails or cookies expire.
+- **Removed Socket.IO:** Migrated from buggy Socket.IO to robust HTTP GET for fetching project data, making syncing much faster and more reliable.
+- **Refactored `download` command:** Position-based arguments and direct source code ZIP downloading with automatic extraction.
+- **Improved Security:** No sensitive information is stored in the source code; authentication uses a local `.olauth` cookie file (not tracked by Git).
 
 ## Features
 - Sync your locally modified `.tex` (and other) files to your Overleaf projects
@@ -21,8 +22,9 @@ This tool provides an easy way to synchronize Overleaf projects from and to your
 - No Git or Dropbox required
 
 ## How To Use
-### Install from Source
-Until this is published to PyPI, you can install it locally:
+
+### 1. Install from Source
+Since this is the fixed version, install it locally in your Python environment:
 
 ```bash
 git clone https://github.com/lawrencee/overleaf-sync-fixed
@@ -30,26 +32,54 @@ cd overleaf-sync-fixed
 pip install .
 ```
 
-### Usage
-#### Login
+### 2. Login to Overleaf
+You need to provide your `overleaf_session2` cookie to authenticate.
+
 ```bash
 ols login
 ```
-Follow the prompts to paste your `overleaf_session2` cookie from your browser's developer tools.
+*Tip: Get the cookie from your browser: F12 -> Application -> Cookies -> `overleaf_session2` Value.*
 
-#### List Projects
+### 3. List your Projects
+Verify that the tool can see your Overleaf projects:
+
 ```bash
 ols list
 ```
-
-#### Syncing
-```bash
-# Two-way sync the current folder with an Overleaf project of the same name
-ols
+**Expected Output:**
+```text
+✅  Querying all projects
+03/08/2026, 14:30:15 - My Paper Title
+02/15/2026, 09:12:33 - IEEE Conference Template
+...
 ```
 
+### 4. Download Project Source (NEW)
+To get the LaTeX source code of a specific project and extract it into the current directory:
+
+```bash
+# Usage: ols download [PROJECT_NAME]
+ols download "My Paper Title"
+```
+**Expected Results:**
+- 📁 Current directory will be populated with `.tex`, `.bib`, and image files from Overleaf.
+- ✅ CLI will output: `Source downloaded successfully. Extracted source to: /your/local/path`
+
+### 5. Two-way Sync
+Once you've modified files locally, run the main command to sync changes back and forth:
+
+```bash
+# Simply run 'ols' in the project directory
+ols
+```
+**Expected Results:**
+- CLI will compare local and remote files.
+- You'll be prompted to resolve conflicts if both sides have changes.
+
+---
+
 ## Credits
-This project is based on the excellent work by **Moritz Glöckl** ([original repository](https://github.com/moritzgloeckl/overleaf-sync)). Special thanks to the original author for the foundational logic.
+Based on the original work by **Moritz Glöckl** ([original repository](https://github.com/moritzgloeckl/overleaf-sync)).
 
 ## Disclaimer
-THE AUTHOR OF THIS SOFTWARE AND THIS SOFTWARE IS NOT ENDORSED BY, DIRECTLY AFFILIATED WITH, MAINTAINED, AUTHORIZED, OR SPONSORED BY OVERLEAF OR WRITELATEX LIMITED. USE AT YOUR OWN RISK.
+THIS SOFTWARE IS NOT AFFILIATED WITH OVERLEAF OR WRITELATEX LIMITED. USE AT YOUR OWN RISK.
