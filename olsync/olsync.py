@@ -161,32 +161,14 @@ def list_projects(cookie_path, verbose):
 
 
 @main.command(name='download')
-@click.option('-n', '--name', 'project_name', default="",
-              help="Specify the Overleaf project name instead of the default name of the sync directory.")
-@click.option('--download-path', 'download_path', default=".", type=click.Path(exists=True))
+@click.argument('project_name', required=False)
+@click.option('--pdf', is_flag=True, help="Download compiled PDF instead of source code.")
+@click.option('--path', 'download_path', default=".", type=click.Path(exists=True), help="Directory to download to.")
 @click.option('--store-path', 'cookie_path', default=".olauth", type=click.Path(exists=False),
               help="Relative path to load the persisted Overleaf cookie.")
 @click.option('-v', '--verbose', 'verbose', is_flag=True, help="Enable extended error logging.")
-def download_pdf(project_name, download_path, cookie_path, verbose):
-    def download_project_pdf():
-        nonlocal project_name
-        project_name = project_name or os.path.basename(os.getcwd())
-        project = execute_action(
-            lambda: overleaf_client.get_project(project_name),
-            "Querying project",
-            "Project queried successfully.",
-            "Project could not be queried.",
-            verbose)
-
-        file_name, content = overleaf_client.download_pdf(project["id"])
-
-        if file_name and content:
-            # Change the current directory to the specified sync path
-            os.chdir(download_path)
-            open(file_name, 'wb').write(content)
-
-        return True
-
+def download(project_name, pdf, download_path, cookie_path, verbose):
+    """Download project source (default) or compiled PDF (--pdf)."""
     if not os.path.isfile(cookie_path):
         raise click.ClickException(
             "Persisted Overleaf cookie not found. Please login or check store path.")
@@ -196,11 +178,41 @@ def download_pdf(project_name, download_path, cookie_path, verbose):
 
     overleaf_client = OverleafClient(store["cookie"], store["csrf"])
 
-    click.clear()
+    project_name = project_name or os.path.basename(os.getcwd())
+    project = execute_action(
+        lambda: overleaf_client.get_project(project_name),
+        "Querying project",
+        "Project queried successfully.",
+        "Project could not be queried.",
+        verbose)
 
-    execute_action(download_project_pdf, "Downloading project's PDF",
-                   "Downloading project's PDF successful.",
-                   "Downloading project's PDF failed. Please try again.", verbose)
+    if pdf:
+        # Download PDF
+        file_name, content = execute_action(
+            lambda: overleaf_client.download_pdf(project["id"]),
+            "Compiling and downloading PDF",
+            "PDF downloaded successfully.",
+            "PDF could not be downloaded.",
+            verbose)
+        if file_name and content:
+            target_path = os.path.join(download_path, file_name)
+            with open(target_path, 'wb') as f:
+                f.write(content)
+            click.echo(f"\n✅ Saved PDF to: {target_path}")
+    else:
+        # Download Source ZIP
+        content = execute_action(
+            lambda: overleaf_client.download_project(project["id"]),
+            "Downloading project source",
+            "Source downloaded successfully.",
+            "Source could not be downloaded.",
+            verbose)
+        
+        import zipfile, io
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            z.extractall(download_path)
+        click.echo(f"\n✅ Extracted source to: {os.path.abspath(download_path)}")
+
 
 
 def login_handler(path):

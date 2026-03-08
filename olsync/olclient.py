@@ -204,41 +204,15 @@ class OverleafClient(object):
 
         Returns: project details
         """
-        project_infos = None
-
-        # Callback function for the joinProject emitter
-        def set_project_infos(a, project_infos_dict, c, d):
-            # Set project_infos variable in outer scope
-            nonlocal project_infos
-            project_infos = project_infos_dict
-
-        # Convert cookie from CookieJar to string
-        cookie = "GCLB={}; overleaf_session2={}" \
-            .format(
-            self._cookie["GCLB"],
-            self._cookie["overleaf_session2"]
-        )
-
-        # Connect to Overleaf Socket.IO, send a time parameter and the cookies
-        socket_io = SocketIO(
-            BASE_URL,
-            params={'t': int(time.time())},
-            headers={'Cookie': cookie}
-        )
-
-        # Wait until we connect to the socket
-        socket_io.on('connect', lambda: None)
-        socket_io.wait_for_callbacks()
-
-        # Send the joinProject event and receive the project infos
-        socket_io.emit('joinProject', {'project_id': project_id}, set_project_infos)
-        socket_io.wait_for_callbacks()
-
-        # Disconnect from the socket if still connected
-        if socket_io.connected:
-            socket_io.disconnect()
-
-        return project_infos
+        # Modern Overleaf supports fetching project info via HTTP
+        # This replaces the old Socket.IO implementation which was buggy and slow
+        r = reqs.get(BASE_URL + "/project/{}/project_infos".format(project_id),
+                     cookies=self._cookie)
+        
+        if r.status_code == 200:
+            return r.json()
+        else:
+            raise ConnectionError("Failed to fetch project info via HTTP. Status code: {}".format(r.status_code))
 
     def upload_file(self, project_id, project_infos, file_name, file_size, file):
         """
