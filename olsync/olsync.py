@@ -278,9 +278,14 @@ def download(project_name, pdf, download_path, cookie_path, verbose):
             "Source could not be downloaded.",
             verbose,
         )
+        # FIX: extract into a subfolder named after the project, not the bare
+        # download_path, so files don't spill into the current directory.
+        safe_name = "".join(c for c in project["name"] if c.isalnum() or c in " _-").strip()
+        project_dir = os.path.join(download_path, safe_name)
+        os.makedirs(project_dir, exist_ok=True)
         with zipfile.ZipFile(io.BytesIO(content)) as z:
-            z.extractall(download_path)
-        click.echo(f"\n✅ Extracted source to: {os.path.abspath(download_path)}")
+            z.extractall(project_dir)
+        click.echo(f"\n✅ Extracted source to: {os.path.abspath(project_dir)}")
 
 
 # ------------------------------------------------------------------ #
