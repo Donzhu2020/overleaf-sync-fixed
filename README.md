@@ -39,17 +39,18 @@ The following issues were identified and fixed in `olclient.py`, `olsync.py`, an
 
 | # | Issue | Fix |
 |---|-------|-----|
-| 8 | **`open()` calls without context managers in lambdas** — file handles passed to `upload_file` were never explicitly closed, relying on the garbage collector. Added `_read_local()` helper using `with open(...)` for the equality-check lambdas. | Documented that `requests` closes upload handles; used `with open(...)` properly elsewhere. |
-| 9 | **`olignore_keep_list()` called multiple times per sync** — in the local sync branch it was called inside `files_from=`, `deleted_files=`, and repeatedly inside comparison lambdas — causing redundant filesystem scans on every file comparison. | Called once, result stored in `keep_list` and reused throughout. |
-| 10 | **`execute_action` treated `None` return as success** — `if success:` would incorrectly treat `None` (e.g. from `download_pdf` when no PDF exists) or an empty list as a failure, and could mask legitimate falsy results. | Changed to explicit `if result is not None and result is not False`. |
-| 11 | **Blank lines in `.olignore` treated as patterns** — empty strings were passed to `fnmatch.fnmatch()`, which is harmless but wasteful and semantically wrong (a blank line should mean "ignore nothing"). | Added filtering of empty/whitespace-only lines when reading `.olignore`. |
+| 8 | **`ols download` extracted files directly into current directory** — `z.extractall(download_path)` dumped all project files flat into wherever you ran the command, with no subfolder, polluting the working directory. Note: the original upstream code never had a source-download feature at all (only PDF download); this bug was introduced in the TOBEACODER7 fork. | Created a sanitised subfolder named after the project (`./My Paper Title/`) before extracting, using `os.makedirs(..., exist_ok=True)`. |
+| 9 | **`open()` calls without context managers in lambdas** — file handles passed to `upload_file` were never explicitly closed, relying on the garbage collector. | Added `_read_local()` helper using `with open(...)` for equality-check lambdas. |
+| 10 | **`olignore_keep_list()` called multiple times per sync** — called inside `files_from=`, `deleted_files=`, and repeatedly inside comparison lambdas, causing redundant filesystem scans on every file comparison. | Called once, result stored in `keep_list` and reused throughout. |
+| 11 | **`execute_action` treated `None` return as success** — `if success:` incorrectly treated `None` or an empty list as failure, masking legitimate falsy results. | Changed to explicit `if result is not None and result is not False`. |
+| 12 | **Blank lines in `.olignore` treated as patterns** — empty strings passed to `fnmatch.fnmatch()` are semantically wrong (a blank line should mean "ignore nothing"). | Added filtering of empty/whitespace-only lines when reading `.olignore`. |
 
 ### `pyproject.toml`
 
 | # | Issue | Fix |
 |---|-------|-----|
-| 12 | **`socketIO-client` still listed as a dependency** — the Socket.IO code was removed but the package remained in `requires`, forcing an unnecessary install that may fail on newer Python versions. | Removed `socketIO-client` from dependencies. |
-| 13 | **Over-pinned dependency versions** — `beautifulsoup4 == 4.11.1` (exact pin) and `python-dateutil~=2.8.1` are unnecessarily strict, preventing users from using newer compatible releases. | Relaxed to compatible ranges: `>=4.11,<5` and `>=2.8,<3`. |
+| 13 | **`socketIO-client` still listed as a dependency** — the Socket.IO code was removed but the package remained in `requires`, forcing an unnecessary install that may fail on newer Python versions. | Removed `socketIO-client` from dependencies. |
+| 14 | **Over-pinned dependency versions** — `beautifulsoup4 == 4.11.1` (exact pin) and `python-dateutil~=2.8.1` are unnecessarily strict, preventing users from using newer compatible releases. | Relaxed to compatible ranges: `>=4.11,<5` and `>=2.8,<3`. |
 
 ----
 
@@ -104,7 +105,22 @@ ols list
 ols download "My Paper Title"
 ```
 
-The current directory will be populated with `.tex`, `.bib`, and image files from Overleaf.
+Files will be extracted into a subfolder named after the project:
+
+```
+./My Paper Title/
+    main.tex
+    references.bib
+    figures/
+    ...
+```
+
+To then use two-way sync on the downloaded project:
+
+```bash
+cd "My Paper Title"
+ols
+```
 
 ### 5. Two-Way Sync
 
